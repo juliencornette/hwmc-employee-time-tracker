@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { AlertTriangle } from 'lucide-react';
 
 interface TimeEntry {
   id: string;
@@ -15,17 +17,21 @@ interface TimeEntry {
   hours: number;
   dayType: 'standard' | 'dayoff' | 'sick' | 'overtime' | 'holiday';
   approved: boolean;
+  isActual?: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 interface TimeEntryDialogProps {
   employeeId: string;
   date: string;
   existingEntry?: TimeEntry;
+  isWeekValidated?: boolean;
   onSave: (entry: TimeEntry) => void;
   onClose: () => void;
 }
 
-export const TimeEntryDialog = ({ employeeId, date, existingEntry, onSave, onClose }: TimeEntryDialogProps) => {
+export const TimeEntryDialog = ({ employeeId, date, existingEntry, isWeekValidated = false, onSave, onClose }: TimeEntryDialogProps) => {
   const [startTime, setStartTime] = useState(existingEntry?.startTime || '10:00');
   const [endTime, setEndTime] = useState(existingEntry?.endTime || '18:00');
   const [dayType, setDayType] = useState(existingEntry?.dayType || 'standard');
@@ -48,6 +54,9 @@ export const TimeEntryDialog = ({ employeeId, date, existingEntry, onSave, onClo
       hours,
       dayType,
       approved: false,
+      isActual: existingEntry?.isActual,
+      approvedBy: existingEntry?.approvedBy,
+      approvedAt: existingEntry?.approvedAt,
     };
     onSave(entry);
   };
@@ -60,10 +69,24 @@ export const TimeEntryDialog = ({ employeeId, date, existingEntry, onSave, onClo
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
             Time Entry - {format(new Date(date), 'EEEE, MMMM d, yyyy')}
+            {isWeekValidated && (
+              <Badge variant="secondary" className="text-xs">
+                Week Validated
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
+        
+        {isWeekValidated && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+            <div className="text-sm text-yellow-800">
+              <strong>Note:</strong> This week has been validated. Any changes will be marked as "Actual" instead of "Planning".
+            </div>
+          </div>
+        )}
         
         <div className="space-y-4">
           <div>
@@ -120,7 +143,9 @@ export const TimeEntryDialog = ({ employeeId, date, existingEntry, onSave, onClo
 
         <div className="flex justify-end gap-2 pt-4">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save Entry</Button>
+          <Button onClick={handleSave}>
+            {isWeekValidated ? 'Save as Actual' : 'Save Entry'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

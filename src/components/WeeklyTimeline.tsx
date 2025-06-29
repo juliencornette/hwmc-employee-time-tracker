@@ -1,11 +1,12 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar, Lock, Check, Shield } from 'lucide-react';
 import { TimeEntryDialog } from './TimeEntryDialog';
-import { format, addWeeks, subWeeks, startOfWeek, addDays } from 'date-fns';
+import { format, addWeeks, subWeeks, startOfWeek, addDays, isSameMonth } from 'date-fns';
 
 interface TimeEntry {
   id: string;
@@ -15,6 +16,9 @@ interface TimeEntry {
   hours: number;
   dayType: 'standard' | 'dayoff' | 'sick' | 'overtime' | 'holiday';
   approved: boolean;
+  isActual?: boolean; // true when modified after approval
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 interface Employee {
@@ -23,6 +27,20 @@ interface Employee {
   role: string;
   initials: string;
   color: string;
+}
+
+interface WeekValidation {
+  weekStart: string;
+  isValidated: boolean;
+  validatedBy?: string;
+  validatedAt?: string;
+}
+
+interface MonthLock {
+  month: string; // format: 'YYYY-MM'
+  isLocked: boolean;
+  lockedBy?: string;
+  lockedAt?: string;
 }
 
 const employees: Employee[] = [
@@ -38,6 +56,9 @@ export const WeeklyTimeline = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState<{ employeeId: string; date: string } | null>(null);
   const [timeEntries, setTimeEntries] = useState<Record<string, TimeEntry[]>>({});
+  const [weekValidations, setWeekValidations] = useState<WeekValidation[]>([]);
+  const [monthLocks, setMonthLocks] = useState<MonthLock[]>([]);
+  const [userRole] = useState<'admin' | 'manager' | 'hr'>('admin'); // Mock user role
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -45,7 +66,15 @@ export const WeeklyTimeline = () => {
   const workDays = weekDates.slice(1, 6); // Tue-Sat
   const displayDates = [weekDates[0], ...workDays, weekDates[6]]; // Mon, Tue-Sat, Sun
 
+  const currentWeekKey = format(weekStart, 'yyyy-MM-dd');
+  const currentMonth = format(weekStart, 'yyyy-MM');
+
+  const isWeekValidated = weekValidations.find(w => w.weekStart === currentWeekKey)?.isValidated || false;
+  const isMonthLocked = monthLocks.find(m => m.month === currentMonth)?.isLocked || false;
+
   const applyStandardWeek = () => {
+    if (isWeekValidated || isMonthLocked) return;
+    
     const newEntries = { ...timeEntries };
     
     employees.forEach(employee => {
@@ -53,7 +82,6 @@ export const WeeklyTimeline = () => {
         newEntries[employee.id] = [];
       }
       
-      // Apply standard schedule for Tuesday-Saturday (workDays)
       workDays.forEach(date => {
         const dateStr = format(date, 'yyyy-MM-dd');
         const existingEntry = newEntries[employee.id].find(entry => entry.date === dateStr);
@@ -76,6 +104,38 @@ export const WeeklyTimeline = () => {
     setTimeEntries(newEntries);
   };
 
+  const validateWeek = () => {
+    if (userRole !== 'manager' && userRole !== 'admin') return;
+    
+    const newValidation: WeekValidation = {
+      weekStart: currentWeekKey,
+      isValidated: true,
+      validatedBy: 'Line Manager',
+      validatedAt: new Date().toISOString(),
+    };
+    
+    setWeekValidations(prev => [
+      ...prev.filter(w => w.weekStart !== currentWeekKey),
+      newValidation
+    ]);
+  };
+
+  const lockMonth = () => {
+    if (userRole !== 'hr' && userRole !== 'admin') return;
+    
+    const newLock: MonthLock = {
+      month: currentMonth,
+      isLocked: true,
+      lockedBy: 'HR',
+      lockedAt: new Date().toISOString(),
+    };
+    
+    setMonthLocks(prev => [
+      ...prev.filter(m => m.month !== currentMonth),
+      newLock
+    ]);
+  };
+
   const getEntryForDate = (employeeId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return timeEntries[employeeId]?.find(entry => entry.date === dateStr);
@@ -89,23 +149,39 @@ export const WeeklyTimeline = () => {
     return total;
   };
 
-  const getDayTypeColor = (dayType: string, hours: number) => {
+  const getDayTypeColor = (dayType: string, hours: number, isActual?: boolean, isValidated?: boolean) => {
+    let baseColor = '';
+    
     switch (dayType) {
       case 'standard':
-        if (hours > 8) return 'bg-orange-100 border-orange-200 text-orange-800';
-        if (hours < 8) return 'bg-blue-100 border-blue-200 text-blue-800';
-        return 'bg-green-100 border-green-200 text-green-800';
+        if (hours > 8) baseColor = 'bg-orange-100 border-orange-200 text-orange-800';
+        else if (hours < 8) baseColor = 'bg-blue-100 border-blue-200 text-blue-800';
+        else baseColor = 'bg-green-100 border-green-200 text-green-800';
+        break;
       case 'dayoff':
-        return 'bg-gray-100 border-gray-200 text-gray-600';
+        baseColor = 'bg-gray-100 border-gray-200 text-gray-600';
+        break;
       case 'overtime':
-        return 'bg-orange-100 border-orange-200 text-orange-800';
+        baseColor = 'bg-orange-100 border-orange-200 text-orange-800';
+        break;
       case 'sick':
-        return 'bg-red-100 border-red-200 text-red-800';
+        baseColor = 'bg-red-100 border-red-200 text-red-800';
+        break;
       case 'holiday':
-        return 'bg-purple-100 border-purple-200 text-purple-800';
+        baseColor = 'bg-purple-100 border-purple-200 text-purple-800';
+        break;
       default:
-        return 'bg-gray-50 border-gray-200 text-gray-500';
+        baseColor = 'bg-gray-50 border-gray-200 text-gray-500';
     }
+
+    // Add visual indicators for validation states
+    if (isActual && isValidated) {
+      baseColor += ' ring-2 ring-yellow-400'; // Actual entries after validation
+    } else if (isValidated) {
+      baseColor += ' ring-2 ring-green-400'; // Validated planning
+    }
+
+    return baseColor;
   };
 
   const formatTimeRange = (entry: TimeEntry) => {
@@ -123,20 +199,63 @@ export const WeeklyTimeline = () => {
     return '';
   };
 
+  const canEditEntry = () => {
+    return !isMonthLocked;
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl font-bold">Weekly Timeline</CardTitle>
+          <div className="flex items-center gap-4">
+            <CardTitle className="text-2xl font-bold">Weekly Timeline</CardTitle>
+            {isWeekValidated && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <Check className="h-3 w-3" />
+                Week Validated
+              </Badge>
+            )}
+            {isMonthLocked && (
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <Lock className="h-3 w-3" />
+                Month Locked
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center gap-4">
             <Button 
               variant="outline" 
               onClick={applyStandardWeek}
               className="flex items-center gap-2"
+              disabled={isWeekValidated || isMonthLocked}
             >
               <Calendar className="h-4 w-4" />
               Apply Standard Week
             </Button>
+            
+            {(userRole === 'manager' || userRole === 'admin') && !isWeekValidated && (
+              <Button 
+                variant="default" 
+                onClick={validateWeek}
+                className="flex items-center gap-2"
+                disabled={isMonthLocked}
+              >
+                <Check className="h-4 w-4" />
+                Validate Week
+              </Button>
+            )}
+            
+            {(userRole === 'hr' || userRole === 'admin') && !isMonthLocked && (
+              <Button 
+                variant="destructive" 
+                onClick={lockMonth}
+                className="flex items-center gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Lock Month for Payroll
+              </Button>
+            )}
+            
             <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -188,8 +307,8 @@ export const WeeklyTimeline = () => {
                   <div key={index} className="space-y-2">
                     {entry ? (
                       <div
-                        className={`p-3 rounded-lg border-2 cursor-pointer hover:shadow-md transition-shadow ${getDayTypeColor(entry.dayType, entry.hours)}`}
-                        onClick={() => setSelectedEntry({ employeeId: employee.id, date: format(date, 'yyyy-MM-dd') })}
+                        className={`p-3 rounded-lg border-2 cursor-pointer hover:shadow-md transition-shadow ${getDayTypeColor(entry.dayType, entry.hours, entry.isActual, isWeekValidated)}`}
+                        onClick={() => canEditEntry() && setSelectedEntry({ employeeId: employee.id, date: format(date, 'yyyy-MM-dd') })}
                       >
                         <div className="text-center">
                           <div className="font-semibold text-lg">{formatTimeRange(entry)}</div>
@@ -202,13 +321,24 @@ export const WeeklyTimeline = () => {
                                entry.dayType === 'holiday' ? 'Holiday' : 'Standard day'}
                             </Badge>
                           )}
+                          {entry.isActual && isWeekValidated && (
+                            <Badge variant="outline" className="mt-1 text-xs bg-yellow-50">
+                              Actual
+                            </Badge>
+                          )}
+                          {isWeekValidated && !entry.isActual && (
+                            <Badge variant="outline" className="mt-1 text-xs bg-green-50">
+                              Planning
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ) : (
                       <Button
                         variant="outline"
                         className="w-full h-24 border-dashed border-2 hover:border-solid"
-                        onClick={() => setSelectedEntry({ employeeId: employee.id, date: format(date, 'yyyy-MM-dd') })}
+                        onClick={() => canEditEntry() && setSelectedEntry({ employeeId: employee.id, date: format(date, 'yyyy-MM-dd') })}
+                        disabled={!canEditEntry()}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Entry
@@ -236,12 +366,18 @@ export const WeeklyTimeline = () => {
             employeeId={selectedEntry.employeeId}
             date={selectedEntry.date}
             existingEntry={timeEntries[selectedEntry.employeeId]?.find(e => e.date === selectedEntry.date)}
+            isWeekValidated={isWeekValidated}
             onSave={(entry) => {
+              const updatedEntry = {
+                ...entry,
+                isActual: isWeekValidated // Mark as actual if week was already validated
+              };
+              
               setTimeEntries(prev => ({
                 ...prev,
                 [selectedEntry.employeeId]: [
                   ...(prev[selectedEntry.employeeId] || []).filter(e => e.date !== selectedEntry.date),
-                  entry
+                  updatedEntry
                 ]
               }));
               setSelectedEntry(null);
