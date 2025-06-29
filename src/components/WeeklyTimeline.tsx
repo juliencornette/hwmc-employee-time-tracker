@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -136,6 +135,12 @@ export const WeeklyTimeline = () => {
     ]);
   };
 
+  const unlockMonth = () => {
+    if (userRole !== 'hr' && userRole !== 'admin') return;
+    
+    setMonthLocks(prev => prev.filter(m => m.month !== currentMonth));
+  };
+
   const getEntryForDate = (employeeId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return timeEntries[employeeId]?.find(entry => entry.date === dateStr);
@@ -253,6 +258,17 @@ export const WeeklyTimeline = () => {
               >
                 <Shield className="h-4 w-4" />
                 Lock Month for Payroll
+              </Button>
+            )}
+
+            {(userRole === 'hr' || userRole === 'admin') && isMonthLocked && (
+              <Button 
+                variant="outline" 
+                onClick={unlockMonth}
+                className="flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-50"
+              >
+                <Lock className="h-4 w-4" />
+                Unlock Month
               </Button>
             )}
             
