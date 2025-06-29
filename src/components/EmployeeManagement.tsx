@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,11 @@ interface Employee {
   initials: string;
   color: string;
   email?: string;
+}
+
+interface EmployeeManagementProps {
+  employees?: Employee[];
+  onEmployeesChange?: (employees: Employee[]) => void;
 }
 
 const initialEmployees: Employee[] = [
@@ -50,8 +55,8 @@ const initialEmployees: Employee[] = [
   },
 ];
 
-export const EmployeeManagement = () => {
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+export const EmployeeManagement = ({ employees: externalEmployees, onEmployeesChange }: EmployeeManagementProps) => {
+  const [employees, setEmployees] = useState<Employee[]>(externalEmployees || initialEmployees);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [formData, setFormData] = useState({
@@ -60,6 +65,22 @@ export const EmployeeManagement = () => {
     email: '',
     accessLevel: 'employee' as Employee['accessLevel']
   });
+
+  // Sync with external employees if provided
+  useEffect(() => {
+    if (externalEmployees) {
+      setEmployees(externalEmployees);
+    }
+  }, [externalEmployees]);
+
+  // Update external state when employees change
+  const updateEmployees = (newEmployees: Employee[]) => {
+    console.log('EmployeeManagement - updating employees:', newEmployees);
+    setEmployees(newEmployees);
+    if (onEmployeesChange) {
+      onEmployeesChange(newEmployees);
+    }
+  };
 
   const getAccessLevelColor = (level: string) => {
     switch (level) {
@@ -81,13 +102,15 @@ export const EmployeeManagement = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('EmployeeManagement - submitting form:', formData);
     
     if (editingEmployee) {
-      setEmployees(prev => prev.map(emp => 
+      const updatedEmployees = employees.map(emp => 
         emp.id === editingEmployee.id 
           ? { ...emp, ...formData, initials: generateInitials(formData.name) }
           : emp
-      ));
+      );
+      updateEmployees(updatedEmployees);
       setEditingEmployee(null);
     } else {
       const newEmployee: Employee = {
@@ -96,7 +119,8 @@ export const EmployeeManagement = () => {
         initials: generateInitials(formData.name),
         color: generateColor()
       };
-      setEmployees(prev => [...prev, newEmployee]);
+      const updatedEmployees = [...employees, newEmployee];
+      updateEmployees(updatedEmployees);
     }
     
     setFormData({ name: '', role: '', email: '', accessLevel: 'employee' });
@@ -115,7 +139,9 @@ export const EmployeeManagement = () => {
   };
 
   const handleDelete = (employeeId: string) => {
-    setEmployees(prev => prev.filter(emp => emp.id !== employeeId));
+    console.log('EmployeeManagement - deleting employee:', employeeId);
+    const updatedEmployees = employees.filter(emp => emp.id !== employeeId);
+    updateEmployees(updatedEmployees);
   };
 
   return (

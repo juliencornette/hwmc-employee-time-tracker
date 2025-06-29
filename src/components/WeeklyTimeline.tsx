@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +24,10 @@ interface Employee {
   id: string;
   name: string;
   role: string;
+  accessLevel: 'admin' | 'manager' | 'hr' | 'employee';
   initials: string;
   color: string;
+  email?: string;
 }
 
 interface WeekValidation {
@@ -42,22 +44,67 @@ interface MonthLock {
   lockedAt?: string;
 }
 
-const employees: Employee[] = [
-  { id: '1', name: 'Federica Beretta', role: 'Director', initials: 'FB', color: 'bg-blue-500' },
-  { id: '2', name: 'Julien Cornette', role: 'Sales Assistant', initials: 'JC', color: 'bg-green-500' },
-  { id: '3', name: 'Eva Dmitrenko', role: 'Gallery Assistant', initials: 'ED', color: 'bg-purple-500' },
+// Initial employees - filtered to exclude HR and Line Manager roles
+const initialEmployees: Employee[] = [
+  { 
+    id: '1', 
+    name: 'Federica Beretta', 
+    role: 'Director', 
+    accessLevel: 'manager',
+    initials: 'FB', 
+    color: 'bg-blue-500',
+    email: 'federica@company.com'
+  },
+  { 
+    id: '2', 
+    name: 'Julien Cornette', 
+    role: 'Sales Assistant', 
+    accessLevel: 'employee',
+    initials: 'JC', 
+    color: 'bg-green-500',
+    email: 'julien@company.com'
+  },
+  { 
+    id: '3', 
+    name: 'Eva Dmitrenko', 
+    role: 'Gallery Assistant', 
+    accessLevel: 'employee',
+    initials: 'ED', 
+    color: 'bg-purple-500',
+    email: 'eva@company.com'
+  },
 ];
 
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const weekendDays = ['Sat', 'Sun'];
 
-export const WeeklyTimeline = () => {
+interface WeeklyTimelineProps {
+  employees?: Employee[];
+}
+
+export const WeeklyTimeline = ({ employees: externalEmployees }: WeeklyTimelineProps) => {
+  // Always start with current week
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState<{ employeeId: string; date: string } | null>(null);
   const [timeEntries, setTimeEntries] = useState<Record<string, TimeEntry[]>>({});
   const [weekValidations, setWeekValidations] = useState<WeekValidation[]>([]);
   const [monthLocks, setMonthLocks] = useState<MonthLock[]>([]);
   const [userRole] = useState<'admin' | 'manager' | 'hr'>('admin'); // Mock user role
+
+  // Filter out HR and Line Manager employees from the timeline
+  const employees = (externalEmployees || initialEmployees).filter(emp => 
+    emp.accessLevel !== 'hr' && emp.accessLevel !== 'manager'
+  );
+
+  console.log('Filtered employees for timeline:', employees);
+  console.log('Current time entries:', timeEntries);
+
+  useEffect(() => {
+    // Ensure we always start with the current week
+    const now = new Date();
+    setCurrentWeek(now);
+    console.log('WeeklyTimeline initialized with current week:', format(now, 'yyyy-MM-dd'));
+  }, []);
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -74,6 +121,7 @@ export const WeeklyTimeline = () => {
   const applyStandardWeek = () => {
     if (isWeekValidated || isMonthLocked) return;
     
+    console.log('Applying standard week for employees:', employees.map(e => e.name));
     const newEntries = { ...timeEntries };
     
     employees.forEach(employee => {
@@ -100,6 +148,7 @@ export const WeeklyTimeline = () => {
       });
     });
     
+    console.log('New time entries after applying standard week:', newEntries);
     setTimeEntries(newEntries);
   };
 
@@ -384,18 +433,23 @@ export const WeeklyTimeline = () => {
             existingEntry={timeEntries[selectedEntry.employeeId]?.find(e => e.date === selectedEntry.date)}
             isWeekValidated={isWeekValidated}
             onSave={(entry) => {
+              console.log('Saving time entry:', entry);
               const updatedEntry = {
                 ...entry,
                 isActual: isWeekValidated // Mark as actual if week was already validated
               };
               
-              setTimeEntries(prev => ({
-                ...prev,
-                [selectedEntry.employeeId]: [
-                  ...(prev[selectedEntry.employeeId] || []).filter(e => e.date !== selectedEntry.date),
-                  updatedEntry
-                ]
-              }));
+              setTimeEntries(prev => {
+                const newEntries = {
+                  ...prev,
+                  [selectedEntry.employeeId]: [
+                    ...(prev[selectedEntry.employeeId] || []).filter(e => e.date !== selectedEntry.date),
+                    updatedEntry
+                  ]
+                };
+                console.log('Updated time entries:', newEntries);
+                return newEntries;
+              });
               setSelectedEntry(null);
             }}
             onClose={() => setSelectedEntry(null)}

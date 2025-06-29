@@ -8,7 +8,51 @@ import { Dashboard } from '@/components/Dashboard';
 import { Reports } from '@/components/Reports';
 import { Calendar, Users, BarChart3, FileText } from 'lucide-react';
 
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  accessLevel: 'admin' | 'manager' | 'hr' | 'employee';
+  initials: string;
+  color: string;
+  email?: string;
+}
+
+const initialEmployees: Employee[] = [
+  { 
+    id: '1', 
+    name: 'Federica Beretta', 
+    role: 'Director', 
+    accessLevel: 'manager',
+    initials: 'FB', 
+    color: 'bg-blue-500',
+    email: 'federica@company.com'
+  },
+  { 
+    id: '2', 
+    name: 'Julien Cornette', 
+    role: 'Sales Assistant', 
+    accessLevel: 'employee',
+    initials: 'JC', 
+    color: 'bg-green-500',
+    email: 'julien@company.com'
+  },
+  { 
+    id: '3', 
+    name: 'Eva Dmitrenko', 
+    role: 'Gallery Assistant', 
+    accessLevel: 'employee',
+    initials: 'ED', 
+    color: 'bg-purple-500',
+    email: 'eva@company.com'
+  },
+];
+
 const Index = () => {
+  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+
+  console.log('Index component - current employees:', employees);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -38,7 +82,7 @@ const Index = () => {
           </TabsList>
           
           <TabsContent value="timeline">
-            <WeeklyTimeline />
+            <WeeklyTimeline employees={employees} />
           </TabsContent>
           
           <TabsContent value="dashboard">
@@ -46,7 +90,10 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="employees">
-            <EmployeeManagement />
+            <EmployeeManagement 
+              employees={employees}
+              onEmployeesChange={setEmployees}
+            />
           </TabsContent>
           
           <TabsContent value="reports">
