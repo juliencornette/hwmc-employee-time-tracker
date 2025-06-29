@@ -52,6 +52,10 @@ export const TimeEntryDialog = ({ employeeId, date, existingEntry, onSave, onClo
     onSave(entry);
   };
 
+  const handleDayTypeChange = (value: string) => {
+    setDayType(value as 'standard' | 'dayoff' | 'sick' | 'overtime' | 'holiday');
+  };
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -64,7 +68,7 @@ export const TimeEntryDialog = ({ employeeId, date, existingEntry, onSave, onClo
         <div className="space-y-4">
           <div>
             <Label htmlFor="dayType">Day Type</Label>
-            <Select value={dayType} onValueChange={setDayType}>
+            <Select value={dayType} onValueChange={handleDayTypeChange}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
