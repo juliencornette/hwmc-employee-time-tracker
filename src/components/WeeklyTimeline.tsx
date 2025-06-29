@@ -1,10 +1,9 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { TimeEntryDialog } from './TimeEntryDialog';
 import { format, addWeeks, subWeeks, startOfWeek, addDays } from 'date-fns';
 
@@ -45,6 +44,37 @@ export const WeeklyTimeline = () => {
   
   const workDays = weekDates.slice(1, 6); // Tue-Sat
   const displayDates = [weekDates[0], ...workDays, weekDates[6]]; // Mon, Tue-Sat, Sun
+
+  const applyStandardWeek = () => {
+    const newEntries = { ...timeEntries };
+    
+    employees.forEach(employee => {
+      if (!newEntries[employee.id]) {
+        newEntries[employee.id] = [];
+      }
+      
+      // Apply standard schedule for Tuesday-Saturday (workDays)
+      workDays.forEach(date => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const existingEntry = newEntries[employee.id].find(entry => entry.date === dateStr);
+        
+        if (!existingEntry) {
+          const standardEntry: TimeEntry = {
+            id: `${employee.id}-${dateStr}`,
+            date: dateStr,
+            startTime: '10:00',
+            endTime: '18:00',
+            hours: 8,
+            dayType: 'standard',
+            approved: false,
+          };
+          newEntries[employee.id].push(standardEntry);
+        }
+      });
+    });
+    
+    setTimeEntries(newEntries);
+  };
 
   const getEntryForDate = (employeeId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -99,6 +129,14 @@ export const WeeklyTimeline = () => {
         <div className="flex items-center justify-between">
           <CardTitle className="text-2xl font-bold">Weekly Timeline</CardTitle>
           <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              onClick={applyStandardWeek}
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Apply Standard Week
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
